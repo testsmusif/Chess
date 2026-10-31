@@ -1,0 +1,173 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 0: Global default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Hardened Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. UserProfile Validation Blueprint
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.nickname is string && data.nickname.size() >= 1 && data.nickname.size() <= 30 &&
+             data.kills is int && data.kills >= 0 && data.kills <= 1000000 &&
+             data.deaths is int && data.deaths >= 0 && data.deaths <= 1000000 &&
+             data.matchesPlayed is int && data.matchesPlayed >= 0 && data.matchesPlayed <= 1000000 &&
+             data.wins is int && data.wins >= 0 && data.wins <= 1000000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 2. MatchRoom Validation Blueprint
+    function isValidMatchRoom(data) {
+      return data.roomCode is string && data.roomCode.size() >= 4 && data.roomCode.size() <= 12 &&
+             data.hostId is string && data.hostId.size() >= 1 && data.hostId.size() <= 128 &&
+             data.hostName is string && data.hostName.size() >= 1 && data.hostName.size() <= 30 &&
+             data.mode is string && (data.mode == 'tdm' || data.mode == 'ffa') &&
+             data.status is string && (data.status == 'waiting' || data.status == 'playing' || data.status == 'finished') &&
+             data.isPublic is bool &&
+             data.scoreLimit is int && data.scoreLimit >= 5 && data.scoreLimit <= 50 &&
+             data.whiteScore is int && data.whiteScore >= 0 && data.whiteScore <= 1000 &&
+             data.blackScore is int && data.blackScore >= 0 && data.blackScore <= 1000 &&
+             data.playerCount is int && data.playerCount >= 0 && data.playerCount <= 16 &&
+             data.winner is string && data.winner.size() <= 64 &&
+             data.arenaTheme is string && (data.arenaTheme == 'cyber_obsidian' || data.arenaTheme == 'royal_marble' || data.arenaTheme == 'neon_void') &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 3. RoomPlayer Validation Blueprint
+    function isValidRoomPlayer(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.roomCode is string && data.roomCode.size() >= 4 && data.roomCode.size() <= 12 &&
+             data.nickname is string && data.nickname.size() >= 1 && data.nickname.size() <= 30 &&
+             data.team is string && (data.team == 'WHITE' || data.team == 'BLACK' || data.team == 'FFA') &&
+             (data.x is int || data.x is float) && data.x >= -30.0 && data.x <= 30.0 &&
+             (data.y is int || data.y is float) && data.y >= -5.0 && data.y <= 25.0 &&
+             (data.z is int || data.z is float) && data.z >= -30.0 && data.z <= 30.0 &&
+             (data.yaw is int || data.yaw is float) && data.yaw >= -360.0 && data.yaw <= 360.0 &&
+             (data.pitch is int || data.pitch is float) && data.pitch >= -90.0 && data.pitch <= 90.0 &&
+             data.health is int && data.health >= 0 && data.health <= 100 &&
+             data.ammo is int && data.ammo >= 0 && data.ammo <= 60 &&
+             data.kills is int && data.kills >= 0 && data.kills <= 1000 &&
+             data.deaths is int && data.deaths >= 0 && data.deaths <= 1000 &&
+             data.weapon is string && (data.weapon == 'PULSE_RIFLE' || data.weapon == 'RAIL_PISTOL' || data.weapon == 'SHOTGUN_ROOK') &&
+             data.lastShotSeq is int && data.lastShotSeq >= 0 && data.lastShotSeq <= 10000000 &&
+             data.lastHitBy is string && data.lastHitBy.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // Collection: /users/{userId}
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'nickname', 'kills', 'deaths', 'matchesPlayed', 'wins', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'nickname', 'kills', 'deaths', 'matchesPlayed', 'wins', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['nickname', 'kills', 'deaths', 'matchesPlayed', 'wins', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // Collection: /rooms/{roomId}
+    match /rooms/{roomId} {
+      allow get: if isSignedIn() && isValidId(roomId);
+      allow list: if isSignedIn() && resource.data.isPublic == true;
+
+      allow create: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       incoming().roomCode == roomId &&
+                       incoming().hostId == request.auth.uid &&
+                       incoming().status == 'waiting' &&
+                       incoming().keys().hasAll(['roomCode', 'hostId', 'hostName', 'mode', 'status', 'isPublic', 'scoreLimit', 'whiteScore', 'blackScore', 'playerCount', 'winner', 'arenaTheme', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['roomCode', 'hostId', 'hostName', 'mode', 'status', 'isPublic', 'scoreLimit', 'whiteScore', 'blackScore', 'playerCount', 'winner', 'arenaTheme', 'createdAt', 'updatedAt']) &&
+                       isValidMatchRoom(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       isValidMatchRoom(incoming()) &&
+                       existing().status != 'finished' &&
+                       incoming().roomCode == existing().roomCode &&
+                       incoming().hostId == existing().hostId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Action 1: Host full room configuration & state update
+                         (request.auth.uid == existing().hostId &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'isPublic', 'scoreLimit', 'whiteScore', 'blackScore', 'playerCount', 'winner', 'arenaTheme', 'updatedAt'])) ||
+                         // Action 2: Participant match score / status / playerCount progression
+                         (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'whiteScore', 'blackScore', 'playerCount', 'winner', 'updatedAt']))
+                       );
+
+      allow delete: if isSignedIn() && isValidId(roomId) && resource.data.hostId == request.auth.uid;
+
+      // Subcollection: /rooms/{roomId}/players/{playerId}
+      match /players/{playerId} {
+        allow get: if isSignedIn() && isValidId(roomId) && isValidId(playerId);
+        allow list: if isSignedIn() && resource.data.roomCode == roomId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(playerId) &&
+                         request.auth.uid == playerId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().roomCode == roomId &&
+                         incoming().keys().hasAll(['userId', 'roomCode', 'nickname', 'team', 'x', 'y', 'z', 'yaw', 'pitch', 'health', 'ammo', 'kills', 'deaths', 'weapon', 'lastShotSeq', 'lastHitBy', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'roomCode', 'nickname', 'team', 'x', 'y', 'z', 'yaw', 'pitch', 'health', 'ammo', 'kills', 'deaths', 'weapon', 'lastShotSeq', 'lastHitBy', 'createdAt', 'updatedAt']) &&
+                         isValidRoomPlayer(incoming()) &&
+                         exists(/databases/$(database)/documents/rooms/$(roomId));
+
+        allow update: if isSignedIn() &&
+                         isValidId(roomId) &&
+                         isValidId(playerId) &&
+                         isValidRoomPlayer(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().roomCode == existing().roomCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           // Action 1: Self telemetry, movement, weapon, and respawn update
+                           (request.auth.uid == playerId &&
+                            incoming().diff(existing()).affectedKeys().hasOnly(['nickname', 'team', 'x', 'y', 'z', 'yaw', 'pitch', 'health', 'ammo', 'kills', 'deaths', 'weapon', 'lastShotSeq', 'lastHitBy', 'updatedAt'])) ||
+                           // Action 2: Verified combat hit by opponent (only decreases health and records attacker UID)
+                           (request.auth.uid != playerId &&
+                            incoming().diff(existing()).affectedKeys().hasOnly(['health', 'deaths', 'lastHitBy', 'updatedAt']) &&
+                            incoming().health >= 0 &&
+                            incoming().health < existing().health &&
+                            incoming().lastHitBy == request.auth.uid &&
+                            (incoming().deaths == existing().deaths || (incoming().health == 0 && incoming().deaths == existing().deaths + 1)))
+                         );
+
+        allow delete: if isSignedIn() && isValidId(roomId) && isValidId(playerId) && request.auth.uid == playerId;
+      }
+    }
+  }
+}

@@ -1,0 +1,262 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated player profile and career statistics in Chess Arena.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player."
+        },
+        "nickname": {
+          "type": "string",
+          "description": "Display callsign on the chess arena."
+        },
+        "kills": {
+          "type": "integer",
+          "description": "Total career eliminations."
+        },
+        "deaths": {
+          "type": "integer",
+          "description": "Total career deaths."
+        },
+        "matchesPlayed": {
+          "type": "integer",
+          "description": "Total matches played."
+        },
+        "wins": {
+          "type": "integer",
+          "description": "Total match victories."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Profile creation server timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last profile update server timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "nickname",
+        "kills",
+        "deaths",
+        "matchesPlayed",
+        "wins",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MatchRoom": {
+      "title": "MatchRoom",
+      "description": "Multiplayer 3D Chess Arena match room metadata and live scoreboard.",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "description": "Unique 6-character alphanumeric room code (document ID)."
+        },
+        "hostId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the room creator."
+        },
+        "hostName": {
+          "type": "string",
+          "description": "Display nickname of the room host."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["tdm", "ffa"],
+          "description": "Game mode: Team Deathmatch (tdm) or Free-For-All (ffa)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "playing", "finished"],
+          "description": "Lifecycle status of the room."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the room appears in public matchmaking queries."
+        },
+        "scoreLimit": {
+          "type": "integer",
+          "description": "Kills required to win the match."
+        },
+        "whiteScore": {
+          "type": "integer",
+          "description": "Score for White Chess Team."
+        },
+        "blackScore": {
+          "type": "integer",
+          "description": "Score for Black Chess Team."
+        },
+        "playerCount": {
+          "type": "integer",
+          "description": "Current number of connected players in the room."
+        },
+        "winner": {
+          "type": "string",
+          "description": "Winning team or player callsign when status is finished."
+        },
+        "arenaTheme": {
+          "type": "string",
+          "enum": ["cyber_obsidian", "royal_marble", "neon_void"],
+          "description": "Visual theme of the 3D chess arena."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Room creation server timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Room update server timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "roomCode",
+        "hostId",
+        "hostName",
+        "mode",
+        "status",
+        "isPublic",
+        "scoreLimit",
+        "whiteScore",
+        "blackScore",
+        "playerCount",
+        "winner",
+        "arenaTheme",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RoomPlayer": {
+      "title": "RoomPlayer",
+      "description": "Real-time 3D player telemetry, weapon state, and health inside a MatchRoom.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player."
+        },
+        "roomCode": {
+          "type": "string",
+          "description": "Denormalized roomCode matching parent roomId for secure list query enforcement."
+        },
+        "nickname": {
+          "type": "string",
+          "description": "Player callsign."
+        },
+        "team": {
+          "type": "string",
+          "enum": ["WHITE", "BLACK", "FFA"],
+          "description": "Assigned faction on the chess board."
+        },
+        "x": {
+          "type": "number",
+          "description": "3D world X coordinate on the chess board [-30.0, 30.0]."
+        },
+        "y": {
+          "type": "number",
+          "description": "3D world Y height coordinate [-5.0, 25.0]."
+        },
+        "z": {
+          "type": "number",
+          "description": "3D world Z coordinate on the chess board [-30.0, 30.0]."
+        },
+        "yaw": {
+          "type": "number",
+          "description": "Horizontal look angle in degrees [-360.0, 360.0]."
+        },
+        "pitch": {
+          "type": "number",
+          "description": "Vertical look angle in degrees [-90.0, 90.0]."
+        },
+        "health": {
+          "type": "integer",
+          "description": "Current player health points [0, 100]."
+        },
+        "ammo": {
+          "type": "integer",
+          "description": "Current magazine ammo count [0, 60]."
+        },
+        "kills": {
+          "type": "integer",
+          "description": "Eliminations scored in this match."
+        },
+        "deaths": {
+          "type": "integer",
+          "description": "Deaths suffered in this match."
+        },
+        "weapon": {
+          "type": "string",
+          "enum": ["PULSE_RIFLE", "RAIL_PISTOL", "SHOTGUN_ROOK"],
+          "description": "Equipped weapon archetype."
+        },
+        "lastShotSeq": {
+          "type": "integer",
+          "description": "Monotonic sequence counter for visual muzzle flash and tracer sync."
+        },
+        "lastHitBy": {
+          "type": "string",
+          "description": "UID of the last opponent who dealt damage to this player."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Join server timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Telemetry update server timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "roomCode",
+        "nickname",
+        "team",
+        "x",
+        "y",
+        "z",
+        "yaw",
+        "pitch",
+        "health",
+        "ammo",
+        "kills",
+        "deaths",
+        "weapon",
+        "lastShotSeq",
+        "lastHitBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Player career profiles and statistics scoped to authenticated userId."
+    },
+    "/rooms/{roomId}": {
+      "schema": {
+        "$ref": "#/entities/MatchRoom"
+      },
+      "description": "Multiplayer match rooms indexed by roomCode."
+    },
+    "/rooms/{roomId}/players/{playerId}": {
+      "schema": {
+        "$ref": "#/entities/RoomPlayer"
+      },
+      "description": "Real-time player state documents inside a match room."
+    }
+  }
+}

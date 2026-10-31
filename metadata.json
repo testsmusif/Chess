@@ -1,0 +1,6 @@
+{
+  "name": "Chess Arena",
+  "description": "3D multiplayer tactical shooter set on a futuristic chess arena with first and third-person cameras, real-time online rooms, and customizable touch controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
