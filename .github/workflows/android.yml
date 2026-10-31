@@ -1,4 +1,4 @@
-name: Build Chess APK
+name: Build Chess 2 Counter Strike APK
 
 on:
   workflow_dispatch:
@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Download source code
         uses: actions/checkout@v4
 
-      - name: Set up JDK
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -34,13 +34,36 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Build debug APK
+      - name: Generate debug keystore
+        run: |
+          keytool -genkeypair \
+            -v \
+            -keystore debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Build APK
         run: gradle assembleDebug --stacktrace
+
+      - name: Rename APK
+        run: |
+          mkdir -p release
+          APK=$(find app/build/outputs/apk/debug -name "*.apk" -type f | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "Ошибка: APK не найден"
+            exit 1
+          fi
+          cp "$APK" "release/Shakhmaty_2_Konter_Strike.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Chess-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: Shakhmaty-2-Konter-Strike-APK
+          path: release/Shakhmaty_2_Konter_Strike.apk
           if-no-files-found: error
           retention-days: 7
